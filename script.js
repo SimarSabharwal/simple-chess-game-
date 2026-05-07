@@ -30,6 +30,10 @@ const pieceImages = {
     'wP': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'
 };
 
+let currentTurn = 'w';
+let selectedSquare = null;
+let validMoves = [];
+
 function createBoard() {
     chessboard.innerHTML = '';
     for (let row = 0; row < 8; row++) {
@@ -39,6 +43,16 @@ function createBoard() {
             square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
             square.dataset.row = row;
             square.dataset.col = col;
+            
+            if (selectedSquare && selectedSquare.row === row && selectedSquare.col === col) {
+                square.classList.add('selected');
+            }
+            
+            const move = validMoves.find(m => m.row === row && m.col === col);
+            if (move) {
+                square.classList.add('valid-move');
+                if (move.capture) square.classList.add('capture');
+            }
             
             const pieceCode = boardState[row][col];
             if (pieceCode) {
@@ -53,21 +67,137 @@ function createBoard() {
             chessboard.appendChild(square);
         }
     }
+    updateTurnIndicator();
 }
 
-let selectedSquare = null;
+function updateTurnIndicator() {
+    turnIndicator.textContent = currentTurn === 'w' ? "White's Turn" : "Black's Turn";
+    turnIndicator.className = 'turn-indicator ' + (currentTurn === 'w' ? 'white-turn' : 'black-turn');
+}
 
 function handleSquareClick(row, col) {
-    console.log(`Clicked: ${row}, ${col}`);
-    // Selection logic will go here in Phase 2
+    const piece = boardState[row][col];
     
-    const squares = document.querySelectorAll('.square');
-    squares.forEach(s => s.classList.remove('selected'));
+    // If a move is selected
+    const move = validMoves.find(m => m.row === row && m.col === col);
+    if (move && selectedSquare) {
+        executeMove(selectedSquare.row, selectedSquare.col, row, col);
+        return;
+    }
+
+    // Select a piece
+    if (piece && piece.startsWith(currentTurn)) {
+        selectedSquare = { row, col };
+        validMoves = calculateValidMoves(row, col);
+        createBoard();
+    } else {
+        selectedSquare = null;
+        validMoves = [];
+        createBoard();
+    }
+}
+
+function executeMove(fromRow, fromCol, toRow, toCol) {
+    boardState[toRow][toCol] = boardState[fromRow][fromCol];
+    boardState[fromRow][fromCol] = '';
     
-    const clickedSquare = document.querySelector(`.square[data-row="${row}"][data-col="${col}"]`);
-    clickedSquare.classList.add('selected');
+    selectedSquare = null;
+    validMoves = [];
+    currentTurn = currentTurn === 'w' ? 'b' : 'w';
+    
+    createBoard();
+    console.log(`Move: ${fromRow},${fromCol} to ${toRow},${toCol}. Turn: ${currentTurn}`);
+}
+
+function calculateValidMoves(row, col) {
+    const piece = boardState[row][col];
+    if (!piece) return [];
+    
+    const type = piece[1];
+    const color = piece[0];
+    let moves = [];
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (isValidMove(row, col, r, c)) {
+                const targetPiece = boardState[r][c];
+                moves.push({ row: r, col: c, capture: targetPiece !== '' });
+            }
+        }
+    }
+    return moves;
+}
+
+function isValidMove(fromRow, fromCol, toRow, toCol) {
+    if (fromRow === toRow && fromCol === toCol) return false;
+    
+    const piece = boardState[fromRow][fromCol];
+    const target = boardState[toRow][toCol];
+    
+    // Cannot capture own piece
+    if (target !== '' && target[0] === piece[0]) return false;
+    
+    const rowDiff = toRow - fromRow;
+    const colDiff = toCol - fromCol;
+    const absRowDiff = Math.abs(rowDiff);
+    const absColDiff = Math.abs(colDiff);
+    
+    const type = piece[1];
+    const color = piece[0];
+
+    switch (type) {
+        case 'P': // Pawn
+            const direction = color === 'w' ? -1 : 1;
+            const startRow = color === 'w' ? 6 : 1;
+            
+            // Forward move
+            if (colDiff === 0 && target === '') {
+                if (rowDiff === direction) return true;
+                if (fromRow === startRow && rowDiff === 2 * direction && boardState[fromRow + direction][fromCol] === '') return true;
+            }
+            // Capture
+            if (absColDiff === 1 && rowDiff === direction && target !== '' && target[0] !== color) {
+                return true;
+            }
+            return false;
+
+        case 'R': // Rook
+            if (fromRow !== toRow && fromCol !== toCol) return false;
+            return isPathClear(fromRow, fromCol, toRow, toCol);
+
+        case 'N': // Knight
+            return (absRowDiff === 2 && absColDiff === 1) || (absRowDiff === 1 && absColDiff === 2);
+
+        case 'B': // Bishop
+            if (absRowDiff !== absColDiff) return false;
+            return isPathClear(fromRow, fromCol, toRow, toCol);
+
+        case 'Q': // Queen
+            if (absRowDiff !== absColDiff && fromRow !== toRow && fromCol !== toCol) return false;
+            return isPathClear(fromRow, fromCol, toRow, toCol);
+
+        case 'K': // King
+            return absRowDiff <= 1 && absColDiff <= 1;
+    }
+    
+    return false;
+}
+
+function isPathClear(fromRow, fromCol, toRow, toCol) {
+    const rowStep = toRow > fromRow ? 1 : (toRow < fromRow ? -1 : 0);
+    const colStep = toCol > fromCol ? 1 : (toCol < fromCol ? -1 : 0);
+    
+    let currentRow = fromRow + rowStep;
+    let currentCol = fromCol + colStep;
+    
+    while (currentRow !== toRow || currentCol !== toCol) {
+        if (boardState[currentRow][currentCol] !== '') return false;
+        currentRow += rowStep;
+        currentCol += colStep;
+    }
+    return true;
 }
 
 // Initialize
 createBoard();
-console.log('Chess game initialized - Phase 1 complete.');
+console.log('Chess game initialized - Phase 2 logic active.');

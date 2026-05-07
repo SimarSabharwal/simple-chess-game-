@@ -160,15 +160,25 @@ main {
 
 .square.selected {
     background-color: var(--square-highlight) !important;
+    box-shadow: inset 0 0 20px var(--primary-glow);
 }
 
 .square.valid-move::before {
     content: '';
     width: 20px;
     height: 20px;
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(56, 189, 248, 0.4);
     border-radius: 50%;
     z-index: 1;
+    pointer-events: none;
+}
+
+.square.valid-move.capture::before {
+    width: 80%;
+    height: 80%;
+    background: transparent;
+    border: 4px solid rgba(56, 189, 248, 0.4);
+    border-radius: 50%;
 }
 
 .piece {
