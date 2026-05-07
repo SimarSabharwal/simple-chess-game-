@@ -7,10 +7,11 @@ A high-end, modern chess game built with vanilla **HTML**, **CSS**, and **JavaSc
 ## ✨ Features
 
 - **Premium Dark Mode**: A sophisticated navy and slate theme with glassmorphism elements.
-- **Smooth Animations**: CSS transitions for piece selection and movement (Phase 2).
+- **Interactive Gameplay**: Select pieces to see valid moves and capture opportunities.
+- **Full Piece Logic**: Custom move validation for Pawns, Rooks, Knights, Bishops, Queens, and Kings.
+- **Turn Management**: Automatic switching between White and Black turns.
 - **Crisp SVG Graphics**: High-quality vector pieces that look sharp on any display.
 - **Responsive Design**: Playable on desktop, tablet, and mobile browsers.
-- **Semantic HTML**: Built with accessibility and SEO best practices in mind.
 
 ## 🚀 Getting Started
 
@@ -29,14 +30,14 @@ Simply open `index.html` in any modern web browser to start the experience.
 
 ## 🛠️ Built With
 - **HTML5**: Semantic structure.
-- **CSS3**: Modern layout (Grid/Flexbox) and glassmorphism.
-- **JavaScript (ES6+)**: Game logic and state management.
+- **CSS3**: Modern layout (Grid/Flexbox), glassmorphism, and glowing effects.
+- **JavaScript (ES6+)**: Core game engine, path checking, and state management.
 - **Google Fonts**: 'Outfit' and 'Playfair Display'.
 
 ## 📅 Roadmap
-- [x] **Phase 1**: Foundation & Premium UI (Current)
-- [ ] **Phase 2**: Core Movement & Logic
-- [ ] **Phase 3**: Polish & Game State Refinement
+- [x] **Phase 1**: Foundation & Premium UI
+- [x] **Phase 2**: Core Movement & Logic (Current)
+- [ ] **Phase 3**: Advanced Rules & Game State (Check, Checkmate, Castling)
 
 ## 📜 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
