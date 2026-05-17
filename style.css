@@ -343,3 +343,26 @@ footer {
     .board-sidebar.left { height: 90vw; max-height: 500px; }
     .board-sidebar.bottom { width: 90vw; max-width: 500px; }
 }
+
+/* Game State Styles */
+.turn-indicator.check {
+    border-color: #ef4444;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    animation: pulse-red 2s infinite;
+}
+.turn-indicator.checkmate, .turn-indicator.stalemate {
+    background: #ef4444;
+    color: white;
+    border-color: #dc2626;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+}
+.turn-indicator.stalemate {
+    background: #f59e0b;
+    border-color: #d97706;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+}
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+    100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+}

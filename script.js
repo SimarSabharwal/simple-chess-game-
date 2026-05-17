@@ -2,8 +2,6 @@ const chessboard = document.getElementById('chessboard');
 const turnIndicator = document.getElementById('turn-indicator');
 
 // Initial board state
-// R: Rook, N: Knight, B: Bishop, Q: Queen, K: King, P: Pawn
-// w: White, b: Black
 let boardState = [
     ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
     ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
@@ -33,6 +31,14 @@ const pieceImages = {
 let currentTurn = 'w';
 let selectedSquare = null;
 let validMoves = [];
+let isGameOver = false;
+
+// State for special moves
+let castlingRights = {
+    w: { kingMoved: false, rookQueensideMoved: false, rookKingsideMoved: false },
+    b: { kingMoved: false, rookQueensideMoved: false, rookKingsideMoved: false }
+};
+let lastMove = null; // { piece, fromRow, fromCol, toRow, toCol }
 
 function createBoard() {
     chessboard.innerHTML = '';
@@ -71,24 +77,34 @@ function createBoard() {
 }
 
 function updateTurnIndicator() {
+    if (isGameOver) return; // Managed by checkmate/stalemate
+    
     turnIndicator.textContent = currentTurn === 'w' ? "White's Turn" : "Black's Turn";
     turnIndicator.className = 'turn-indicator ' + (currentTurn === 'w' ? 'white-turn' : 'black-turn');
+    
+    if (isKingInCheck(currentTurn, boardState)) {
+        turnIndicator.textContent += " (Check)";
+        turnIndicator.classList.add('check');
+    } else {
+        turnIndicator.classList.remove('check');
+    }
 }
 
 function handleSquareClick(row, col) {
+    if (isGameOver) return;
     const piece = boardState[row][col];
     
     // If a move is selected
     const move = validMoves.find(m => m.row === row && m.col === col);
     if (move && selectedSquare) {
-        executeMove(selectedSquare.row, selectedSquare.col, row, col);
+        executeMove(selectedSquare.row, selectedSquare.col, row, col, move);
         return;
     }
 
     // Select a piece
     if (piece && piece.startsWith(currentTurn)) {
         selectedSquare = { row, col };
-        validMoves = calculateValidMoves(row, col);
+        validMoves = calculateValidMoves(row, col, boardState);
         createBoard();
     } else {
         selectedSquare = null;
@@ -97,45 +113,103 @@ function handleSquareClick(row, col) {
     }
 }
 
-function executeMove(fromRow, fromCol, toRow, toCol) {
-    boardState[toRow][toCol] = boardState[fromRow][fromCol];
+function executeMove(fromRow, fromCol, toRow, toCol, moveDetails) {
+    const piece = boardState[fromRow][fromCol];
+    const color = piece[0];
+    const type = piece[1];
+
+    // En Passant Capture
+    if (moveDetails && moveDetails.enPassant) {
+        boardState[fromRow][toCol] = ''; // Remove captured pawn
+    }
+
+    // Castling Rook Move
+    if (moveDetails && moveDetails.castling) {
+        if (toCol === 6) { // Kingside
+            boardState[fromRow][5] = boardState[fromRow][7];
+            boardState[fromRow][7] = '';
+        } else if (toCol === 2) { // Queenside
+            boardState[fromRow][3] = boardState[fromRow][0];
+            boardState[fromRow][0] = '';
+        }
+    }
+
+    // Move piece
+    boardState[toRow][toCol] = piece;
     boardState[fromRow][fromCol] = '';
-    
+
+    // Pawn Promotion
+    if (type === 'P' && (toRow === 0 || toRow === 7)) {
+        boardState[toRow][toCol] = color + 'Q'; // Auto promote to Queen
+    }
+
+    // Update state
+    updateCastlingRights(piece, fromRow, fromCol);
+    lastMove = { piece, fromRow, fromCol, toRow, toCol };
+
     selectedSquare = null;
     validMoves = [];
     currentTurn = currentTurn === 'w' ? 'b' : 'w';
     
+    checkGameState();
     createBoard();
     console.log(`Move: ${fromRow},${fromCol} to ${toRow},${toCol}. Turn: ${currentTurn}`);
 }
 
-function calculateValidMoves(row, col) {
-    const piece = boardState[row][col];
+function updateCastlingRights(piece, row, col) {
+    if (piece === 'wK') castlingRights.w.kingMoved = true;
+    if (piece === 'bK') castlingRights.b.kingMoved = true;
+    if (piece === 'wR') {
+        if (col === 0) castlingRights.w.rookQueensideMoved = true;
+        if (col === 7) castlingRights.w.rookKingsideMoved = true;
+    }
+    if (piece === 'bR') {
+        if (col === 0) castlingRights.b.rookQueensideMoved = true;
+        if (col === 7) castlingRights.b.rookKingsideMoved = true;
+    }
+}
+
+function calculateValidMoves(row, col, state) {
+    const piece = state[row][col];
     if (!piece) return [];
     
-    const type = piece[1];
     const color = piece[0];
     let moves = [];
 
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
-            if (isValidMove(row, col, r, c)) {
-                const targetPiece = boardState[r][c];
-                moves.push({ row: r, col: c, capture: targetPiece !== '' });
+            const moveDetails = isPseudoLegalMove(row, col, r, c, state);
+            if (moveDetails) {
+                // Check if this move leaves king in check
+                if (!movePutsKingInCheck(row, col, r, c, color, state, moveDetails)) {
+                    moves.push({ row: r, col: c, capture: moveDetails.capture, enPassant: moveDetails.enPassant, castling: moveDetails.castling });
+                }
             }
         }
     }
     return moves;
 }
 
-function isValidMove(fromRow, fromCol, toRow, toCol) {
-    if (fromRow === toRow && fromCol === toCol) return false;
+function movePutsKingInCheck(fromRow, fromCol, toRow, toCol, color, state, moveDetails) {
+    // Clone board
+    let tempBoard = state.map(row => [...row]);
     
-    const piece = boardState[fromRow][fromCol];
-    const target = boardState[toRow][toCol];
+    // Simulate move
+    if (moveDetails.enPassant) tempBoard[fromRow][toCol] = '';
+    tempBoard[toRow][toCol] = tempBoard[fromRow][fromCol];
+    tempBoard[fromRow][fromCol] = '';
+    
+    return isKingInCheck(color, tempBoard);
+}
+
+function isPseudoLegalMove(fromRow, fromCol, toRow, toCol, state, checkCastling = true) {
+    if (fromRow === toRow && fromCol === toCol) return null;
+    
+    const piece = state[fromRow][fromCol];
+    const target = state[toRow][toCol];
     
     // Cannot capture own piece
-    if (target !== '' && target[0] === piece[0]) return false;
+    if (target !== '' && target[0] === piece[0]) return null;
     
     const rowDiff = toRow - fromRow;
     const colDiff = toCol - fromCol;
@@ -152,38 +226,70 @@ function isValidMove(fromRow, fromCol, toRow, toCol) {
             
             // Forward move
             if (colDiff === 0 && target === '') {
-                if (rowDiff === direction) return true;
-                if (fromRow === startRow && rowDiff === 2 * direction && boardState[fromRow + direction][fromCol] === '') return true;
+                if (rowDiff === direction) return { capture: false };
+                if (fromRow === startRow && rowDiff === 2 * direction && state[fromRow + direction][fromCol] === '') return { capture: false };
             }
             // Capture
             if (absColDiff === 1 && rowDiff === direction && target !== '' && target[0] !== color) {
-                return true;
+                return { capture: true };
             }
-            return false;
+            // En Passant
+            if (absColDiff === 1 && rowDiff === direction && target === '') {
+                if (lastMove && lastMove.piece === (color === 'w' ? 'bP' : 'wP')) {
+                    if (lastMove.toRow === fromRow && lastMove.toCol === toCol && Math.abs(lastMove.fromRow - lastMove.toRow) === 2) {
+                        return { capture: true, enPassant: true };
+                    }
+                }
+            }
+            return null;
 
         case 'R': // Rook
-            if (fromRow !== toRow && fromCol !== toCol) return false;
-            return isPathClear(fromRow, fromCol, toRow, toCol);
+            if (fromRow !== toRow && fromCol !== toCol) return null;
+            if (isPathClear(fromRow, fromCol, toRow, toCol, state)) return { capture: target !== '' };
+            return null;
 
         case 'N': // Knight
-            return (absRowDiff === 2 && absColDiff === 1) || (absRowDiff === 1 && absColDiff === 2);
+            if ((absRowDiff === 2 && absColDiff === 1) || (absRowDiff === 1 && absColDiff === 2)) return { capture: target !== '' };
+            return null;
 
         case 'B': // Bishop
-            if (absRowDiff !== absColDiff) return false;
-            return isPathClear(fromRow, fromCol, toRow, toCol);
+            if (absRowDiff !== absColDiff) return null;
+            if (isPathClear(fromRow, fromCol, toRow, toCol, state)) return { capture: target !== '' };
+            return null;
 
         case 'Q': // Queen
-            if (absRowDiff !== absColDiff && fromRow !== toRow && fromCol !== toCol) return false;
-            return isPathClear(fromRow, fromCol, toRow, toCol);
+            if (absRowDiff !== absColDiff && fromRow !== toRow && fromCol !== toCol) return null;
+            if (isPathClear(fromRow, fromCol, toRow, toCol, state)) return { capture: target !== '' };
+            return null;
 
         case 'K': // King
-            return absRowDiff <= 1 && absColDiff <= 1;
+            if (absRowDiff <= 1 && absColDiff <= 1) return { capture: target !== '' };
+            // Castling
+            if (checkCastling && absColDiff === 2 && rowDiff === 0 && !castlingRights[color].kingMoved) {
+                // Must not be in check currently
+                if (isKingInCheck(color, state)) return null;
+                
+                if (toCol === 6 && !castlingRights[color].rookKingsideMoved) { // Kingside
+                    if (isPathClear(fromRow, fromCol, fromRow, 7, state) &&
+                        !movePutsKingInCheck(fromRow, fromCol, fromRow, 5, color, state, {}) &&
+                        !movePutsKingInCheck(fromRow, fromCol, fromRow, 6, color, state, {})) {
+                        return { capture: false, castling: true };
+                    }
+                } else if (toCol === 2 && !castlingRights[color].rookQueensideMoved) { // Queenside
+                    if (isPathClear(fromRow, fromCol, fromRow, 0, state) &&
+                        !movePutsKingInCheck(fromRow, fromCol, fromRow, 3, color, state, {}) &&
+                        !movePutsKingInCheck(fromRow, fromCol, fromRow, 2, color, state, {})) {
+                        return { capture: false, castling: true };
+                    }
+                }
+            }
+            return null;
     }
     
-    return false;
+    return null;
 }
 
-function isPathClear(fromRow, fromCol, toRow, toCol) {
+function isPathClear(fromRow, fromCol, toRow, toCol, state) {
     const rowStep = toRow > fromRow ? 1 : (toRow < fromRow ? -1 : 0);
     const colStep = toCol > fromCol ? 1 : (toCol < fromCol ? -1 : 0);
     
@@ -191,13 +297,66 @@ function isPathClear(fromRow, fromCol, toRow, toCol) {
     let currentCol = fromCol + colStep;
     
     while (currentRow !== toRow || currentCol !== toCol) {
-        if (boardState[currentRow][currentCol] !== '') return false;
+        if (state[currentRow][currentCol] !== '') return false;
         currentRow += rowStep;
         currentCol += colStep;
     }
     return true;
 }
 
+function isKingInCheck(color, state) {
+    // Find King
+    let kingRow = -1, kingCol = -1;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (state[r][c] === color + 'K') {
+                kingRow = r;
+                kingCol = c;
+                break;
+            }
+        }
+    }
+    
+    // Check if any opponent piece can attack king
+    const oppColor = color === 'w' ? 'b' : 'w';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (state[r][c].startsWith(oppColor)) {
+                // Avoid infinite recursion by not checking castling in pseudo legal check
+                const moveDetails = isPseudoLegalMove(r, c, kingRow, kingCol, state, false);
+                if (moveDetails) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function checkGameState() {
+    let hasAnyValidMove = false;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (boardState[r][c].startsWith(currentTurn)) {
+                if (calculateValidMoves(r, c, boardState).length > 0) {
+                    hasAnyValidMove = true;
+                    break;
+                }
+            }
+        }
+        if (hasAnyValidMove) break;
+    }
+
+    if (!hasAnyValidMove) {
+        isGameOver = true;
+        if (isKingInCheck(currentTurn, boardState)) {
+            turnIndicator.textContent = currentTurn === 'w' ? "Black Wins by Checkmate!" : "White Wins by Checkmate!";
+            turnIndicator.className = 'turn-indicator checkmate';
+        } else {
+            turnIndicator.textContent = "Draw by Stalemate!";
+            turnIndicator.className = 'turn-indicator stalemate';
+        }
+    }
+}
+
 // Initialize
 createBoard();
-console.log('Chess game initialized - Phase 2 logic active.');
+console.log('Chess game initialized - Phase 3 logic active.');

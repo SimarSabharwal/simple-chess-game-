@@ -36,8 +36,8 @@ Simply open `index.html` in any modern web browser to start the experience.
 
 ## 📅 Roadmap
 - [x] **Phase 1**: Foundation & Premium UI
-- [x] **Phase 2**: Core Movement & Logic (Current)
-- [ ] **Phase 3**: Advanced Rules & Game State (Check, Checkmate, Castling)
+- [x] **Phase 2**: Core Movement & Logic
+- [x] **Phase 3**: Advanced Rules & Game State (Check, Checkmate, Castling, En Passant, Promotion) (Completed)
 
 ## 📜 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
