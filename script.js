@@ -32,6 +32,7 @@ let currentTurn = 'w';
 let selectedSquare = null;
 let validMoves = [];
 let isGameOver = false;
+let gameMode = 'pvp';
 
 // State for special moves
 let castlingRights = {
@@ -92,6 +93,7 @@ function updateTurnIndicator() {
 
 function handleSquareClick(row, col) {
     if (isGameOver) return;
+    if (gameMode === 'pvb' && currentTurn === 'b') return; // Prevent human from moving black pieces in PvB mode
     const piece = boardState[row][col];
     
     // If a move is selected
@@ -154,6 +156,10 @@ function executeMove(fromRow, fromCol, toRow, toCol, moveDetails) {
     checkGameState();
     createBoard();
     console.log(`Move: ${fromRow},${fromCol} to ${toRow},${toCol}. Turn: ${currentTurn}`);
+    
+    if (!isGameOver && gameMode === 'pvb' && currentTurn === 'b') {
+        setTimeout(makeBotMove, 500);
+    }
 }
 
 function updateCastlingRights(piece, row, col) {
@@ -356,6 +362,114 @@ function checkGameState() {
         }
     }
 }
+
+// --- Bot Logic ---
+function makeBotMove() {
+    if (isGameOver) return;
+    
+    let allMoves = [];
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (boardState[r][c].startsWith('b')) {
+                const moves = calculateValidMoves(r, c, boardState);
+                moves.forEach(m => {
+                    allMoves.push({
+                        fromRow: r, fromCol: c,
+                        toRow: m.row, toCol: m.col,
+                        moveDetails: m
+                    });
+                });
+            }
+        }
+    }
+    
+    if (allMoves.length === 0) return;
+
+    let bestMove = null;
+    let bestScore = -Infinity;
+    
+    // Add randomness for variety
+    allMoves.sort(() => Math.random() - 0.5);
+
+    for (let move of allMoves) {
+        let score = evaluateMove(move);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = move;
+        }
+    }
+    
+    if (bestMove) {
+        executeMove(bestMove.fromRow, bestMove.fromCol, bestMove.toRow, bestMove.toCol, bestMove.moveDetails);
+    }
+}
+
+function evaluateMove(move) {
+    let score = 0;
+    const targetPiece = boardState[move.toRow][move.toCol];
+    
+    if (targetPiece) {
+        score += getPieceValue(targetPiece);
+    }
+    
+    // Encourage promotion
+    const piece = boardState[move.fromRow][move.fromCol];
+    if (piece === 'bP' && move.toRow === 7) {
+        score += 80;
+    }
+
+    return score;
+}
+
+function getPieceValue(piece) {
+    if (!piece) return 0;
+    const type = piece[1];
+    switch (type) {
+        case 'P': return 10;
+        case 'N': return 30;
+        case 'B': return 30;
+        case 'R': return 50;
+        case 'Q': return 90;
+        case 'K': return 900;
+        default: return 0;
+    }
+}
+
+// --- Game Control ---
+function resetGame() {
+    boardState = [
+        ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
+        ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+        ['', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', ''],
+        ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+        ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
+    ];
+    currentTurn = 'w';
+    selectedSquare = null;
+    validMoves = [];
+    isGameOver = false;
+    castlingRights = {
+        w: { kingMoved: false, rookQueensideMoved: false, rookKingsideMoved: false },
+        b: { kingMoved: false, rookQueensideMoved: false, rookKingsideMoved: false }
+    };
+    lastMove = null;
+    createBoard();
+}
+
+document.getElementById('reset-btn').addEventListener('click', resetGame);
+document.getElementById('game-mode').addEventListener('change', (e) => {
+    gameMode = e.target.value;
+    const p2Name = document.getElementById('player2-name');
+    if (gameMode === 'pvb') {
+        p2Name.textContent = 'Bot (Black)';
+    } else {
+        p2Name.textContent = 'Player 2';
+    }
+    resetGame();
+});
 
 // Initialize
 createBoard();

@@ -366,3 +366,33 @@ footer {
     50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
     100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
 }
+
+/* Mode Selector Styles */
+.mode-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.mode-selector label {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+.mode-selector select {
+    background: var(--surface-color);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    cursor: pointer;
+    outline: none;
+}
+.mode-selector select:focus {
+    border-color: var(--primary-color);
+}
+.mode-selector select option {
+    background: var(--bg-color);
+    color: white;
+}

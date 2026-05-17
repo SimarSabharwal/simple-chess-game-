@@ -47,9 +47,18 @@
                     <div class="vs">VS</div>
                     <div class="player-info black">
                         <div class="avatar">B</div>
-                        <div class="name">Player 2</div>
+                        <div class="name" id="player2-name">Player 2</div>
                     </div>
                 </div>
+                
+                <div class="mode-selector">
+                    <label for="game-mode">Game Mode</label>
+                    <select id="game-mode">
+                        <option value="pvp">Player vs Player</option>
+                        <option value="pvb">Player vs Bot (Black)</option>
+                    </select>
+                </div>
+
                 <button id="reset-btn" class="btn-primary">New Game</button>
             </div>
         </main>
